@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useDatabase } from "@/lib/db/DatabaseProvider";
 import { useT } from "@/lib/i18n/LocaleProvider";
+import { DatabaseErrorBanner } from "@/components/DatabaseErrorBanner";
 import { deleteClass, generateStartList, listClasses, listHeats, listParticipants, upsertClass } from "@/lib/db/repository";
 import { exportStartListPdf } from "@/lib/export/exporters";
 import type { Gender } from "@/lib/types";
@@ -10,7 +11,7 @@ import type { Gender } from "@/lib/types";
 const GENDER_OPTIONS: (Gender | "MIXED")[] = ["M", "F", "MIXED"];
 
 export default function ClassesPage() {
-  const { db, ready, version, notifyChange } = useDatabase();
+  const { db, ready, error, version, notifyChange } = useDatabase();
   const { t } = useT();
   const [newName, setNewName] = useState("");
   const [newGender, setNewGender] = useState<Gender | "MIXED">("MIXED");
@@ -21,6 +22,7 @@ export default function ClassesPage() {
   const participants = useMemo(() => (db ? listParticipants(db) : []), [db, version]);
   const heats = useMemo(() => (db ? listHeats(db) : []), [db, version]);
 
+  if (error) return <DatabaseErrorBanner error={error} />;
   if (!ready || !db) return <p className="text-foreground/60">Laddar lokal databas…</p>;
 
   const participantsById = Object.fromEntries(participants.map((p) => [p.id, p]));

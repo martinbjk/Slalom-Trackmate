@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useDatabase } from "@/lib/db/DatabaseProvider";
 import { useT } from "@/lib/i18n/LocaleProvider";
+import { DatabaseErrorBanner } from "@/components/DatabaseErrorBanner";
 import { deleteParticipant, listClasses, listParticipants } from "@/lib/db/repository";
 import type { Participant } from "@/lib/types";
 import { Modal } from "@/components/Modal";
@@ -11,7 +12,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { ParticipantForm } from "./ParticipantForm";
 
 export default function ParticipantsPage() {
-  const { db, ready, version, notifyChange } = useDatabase();
+  const { db, ready, error, version, notifyChange } = useDatabase();
   const { t } = useT();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Participant | null | "new">(null);
@@ -21,6 +22,7 @@ export default function ParticipantsPage() {
   const classById = useMemo(() => Object.fromEntries(classes.map((c) => [c.id, c.name])), [classes]);
   const participants = useMemo(() => (db ? listParticipants(db, search) : []), [db, version, search]);
 
+  if (error) return <DatabaseErrorBanner error={error} />;
   if (!ready || !db) return <p className="text-foreground/60">Laddar lokal databas…</p>;
 
   return (

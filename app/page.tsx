@@ -4,16 +4,18 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useDatabase } from "@/lib/db/DatabaseProvider";
 import { useT } from "@/lib/i18n/LocaleProvider";
+import { DatabaseErrorBanner } from "@/components/DatabaseErrorBanner";
 import { listClasses, listHeats, listParticipants } from "@/lib/db/repository";
 
 export default function Dashboard() {
-  const { db, ready, version } = useDatabase();
+  const { db, ready, error, version } = useDatabase();
   const { t } = useT();
 
   const classes = useMemo(() => (db ? listClasses(db) : []), [db, version]);
   const participants = useMemo(() => (db ? listParticipants(db) : []), [db, version]);
   const heats = useMemo(() => (db ? listHeats(db) : []), [db, version]);
 
+  if (error) return <DatabaseErrorBanner error={error} />;
   if (!ready) return <p className="text-foreground/60">Laddar lokal databas…</p>;
 
   const cards = [

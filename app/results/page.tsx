@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDatabase } from "@/lib/db/DatabaseProvider";
 import { useT } from "@/lib/i18n/LocaleProvider";
+import { DatabaseErrorBanner } from "@/components/DatabaseErrorBanner";
 import { listClasses, listHeats, listParticipants, listResultsForHeat, upsertResult } from "@/lib/db/repository";
 import { exportResultsPdf } from "@/lib/export/exporters";
 import { formatMsToTime, parseTimeToMs } from "@/lib/time";
@@ -12,7 +13,7 @@ import type { ParticipantStatus } from "@/lib/types";
 const STATUSES: ParticipantStatus[] = ["active", "DNS", "DSQ", "DNF"];
 
 export default function ResultsPage() {
-  const { db, ready, version, notifyChange } = useDatabase();
+  const { db, ready, error, version, notifyChange } = useDatabase();
   const { t } = useT();
 
   const classes = useMemo(() => (db ? listClasses(db) : []), [db, version]);
@@ -37,6 +38,7 @@ export default function ResultsPage() {
   const [statusInputs, setStatusInputs] = useState<Record<string, ParticipantStatus>>({});
   const [timeErrors, setTimeErrors] = useState<Record<string, string>>({});
 
+  if (error) return <DatabaseErrorBanner error={error} />;
   if (!ready || !db) return <p className="text-foreground/60">Laddar lokal databas…</p>;
 
   const heat = heats.find((h) => h.id === heatId);

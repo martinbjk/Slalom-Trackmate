@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useDatabase } from "@/lib/db/DatabaseProvider";
 import { useT } from "@/lib/i18n/LocaleProvider";
+import { DatabaseErrorBanner } from "@/components/DatabaseErrorBanner";
 import { listClasses, listParticipants, createParticipant } from "@/lib/db/repository";
 import { parseUploadedFile, type ParsedFile } from "@/lib/import/parseFile";
 import { buildImportRows, guessColumnMapping } from "@/lib/import/validate";
@@ -11,7 +12,7 @@ import { exportDatabaseFile, restoreDatabaseFromFile } from "@/lib/db/database";
 import type { ColumnMapping, ImportRow, Participant } from "@/lib/types";
 
 export default function ImportExportPage() {
-  const { db, ready, version, notifyChange } = useDatabase();
+  const { db, ready, error, version, notifyChange } = useDatabase();
   const { t } = useT();
 
   const classes = useMemo(() => (db ? listClasses(db) : []), [db, version]);
@@ -90,6 +91,7 @@ export default function ImportExportPage() {
     window.location.reload(); // simplest reliable way to make every page re-read the restored db
   };
 
+  if (error) return <DatabaseErrorBanner error={error} />;
   if (!ready || !db) return <p className="text-foreground/60">Laddar lokal databas…</p>;
 
   const fieldOptions: { value: keyof Participant | ""; label: string }[] = [
