@@ -35,6 +35,7 @@ export default function ResultsPage() {
 
   const [timeInputs, setTimeInputs] = useState<Record<string, string>>({});
   const [statusInputs, setStatusInputs] = useState<Record<string, ParticipantStatus>>({});
+  const [timeErrors, setTimeErrors] = useState<Record<string, string>>({});
 
   if (!ready || !db) return <p className="text-foreground/60">Laddar lokal databas…</p>;
 
@@ -45,6 +46,20 @@ export default function ResultsPage() {
     const existing = resultsByParticipant[participantId];
     const status = statusInputs[participantId] ?? existing?.status ?? "active";
     const timeStr = timeInputs[participantId] ?? (existing?.time_ms != null ? formatMsToTime(existing.time_ms) : "");
+
+    if (status === "active" && timeStr.trim() !== "") {
+      const parsed = parseTimeToMs(timeStr);
+      if (parsed === null) {
+        setTimeErrors((prev) => ({ ...prev, [participantId]: `Ogiltigt tidsformat: "${timeStr}". Använd mm:ss.xx, t.ex. 45.32 eller 1:12.05.` }));
+        return; // Don't save — keep whatever was there before.
+      }
+    }
+    setTimeErrors((prev) => {
+      const next = { ...prev };
+      delete next[participantId];
+      return next;
+    });
+
     const timeMs = status === "active" ? parseTimeToMs(timeStr) : null;
     upsertResult(db, { participant_id: participantId, heat_id: heatId, time_ms: timeMs, rank: null, status });
     notifyChange();
@@ -141,8 +156,11 @@ export default function ResultsPage() {
                         placeholder="mm:ss.xx"
                         defaultValue={r?.time_ms != null ? formatMsToTime(r.time_ms) : ""}
                         onChange={(e) => setTimeInputs((prev) => ({ ...prev, [p.id]: e.target.value }))}
-                        className="tabular-time w-28 rounded border border-line bg-white px-2 py-1 text-sm disabled:bg-black/5"
+                        className={`tabular-time w-28 rounded border bg-white px-2 py-1 text-sm disabled:bg-black/5 ${
+                          timeErrors[p.id] ? "border-signal-red" : "border-line"
+                        }`}
                       />
+                      {timeErrors[p.id] && <p className="mt-1 max-w-40 text-xs text-signal-red">{timeErrors[p.id]}</p>}
                     </td>
                     <td className="px-3 py-2">
                       <select
