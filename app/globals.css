@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f5f2;      /* chalk — the surface content sits on */
+  --foreground: #1c1f26;      /* asphalt — primary text */
+  --surface: #ffffff;         /* card surfaces */
+  --track: #1c1f26;           /* asphalt — header/nav */
+  --cone: #f26522;            /* slalom-cone orange — the one accent */
+  --cone-dark: #c94f16;
+  --signal-green: #1f8a52;    /* clean run / active status */
+  --signal-red: #c4362b;      /* DSQ */
+  --signal-gray: #8a8f98;     /* DNS / DNF */
+  --line: #d9d6cf;            /* hairline borders */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-track: var(--track);
+  --color-cone: var(--cone);
+  --color-cone-dark: var(--cone-dark);
+  --color-signal-green: var(--signal-green);
+  --color-signal-red: var(--signal-red);
+  --color-signal-gray: var(--signal-gray);
+  --color-line: var(--line);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/* Race-bib badge: the recurring visual signature — bib numbers always render
+   like this throughout the app, on the theory that at a competition, the bib
+   number is the one identifier everyone already reads at a glance. */
+.bib-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  padding: 0.15rem 0.5rem;
+  background: var(--track);
+  color: white;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border-radius: 0.25rem;
+  letter-spacing: 0.02em;
+}
+
+.tabular-time {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
