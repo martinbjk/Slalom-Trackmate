@@ -1,7 +1,7 @@
-# Slalom-VW Tävlingshantering
+# Slalom Comp Tävlingshantering
 
 En offline-first webbapplikation som ersätter Excel för att hantera tävlingsdokument
-(deltagare, klasser, startlistor, resultat) i slalom-VW skateboard vid internationella
+(deltagare, klasser, startlistor, resultat) i slalomskateboard vid internationella
 tävlingar — även helt utan internetuppkoppling.
 
 ## Grundprincip

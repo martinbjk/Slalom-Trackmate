@@ -74,7 +74,7 @@ export default function ImportExportPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `slalom-vw-backup-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.sqlite`;
+    a.download = `slalom-comp-backup-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.sqlite`;
     document.body.appendChild(a);
     a.click();
     a.remove();

@@ -1,7 +1,7 @@
 {
-  "name": "Slalom-VW Tävlingshantering",
-  "short_name": "Slalom-VW",
-  "description": "Offline-first tävlingshantering för slalom-VW skateboard.",
+  "name": "Slalom Comp Tävlingshantering",
+  "short_name": "Slalom Comp",
+  "description": "Offline-first tävlingshantering för slalomskateboard — Slalom Comp.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

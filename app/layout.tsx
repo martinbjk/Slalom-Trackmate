@@ -6,8 +6,8 @@ import { Nav } from "@/components/Nav";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 export const metadata: Metadata = {
-  title: "Slalom-VW – Tävlingshantering",
-  description: "Offline-first tävlingshantering för slalom-VW skateboard — ersätter Excel.",
+  title: "Slalom Comp – Tävlingshantering",
+  description: "Offline-first tävlingshantering för slalomskateboard — Slalom Comp, ersätter Excel.",
   manifest: "/manifest.json",
 };
 

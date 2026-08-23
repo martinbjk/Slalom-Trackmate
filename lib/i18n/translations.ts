@@ -2,7 +2,7 @@ import type { Locale } from "../types";
 
 export const translations = {
   sv: {
-    appName: "Tävlingshantering – Slalom-VW",
+    appName: "Tävlingshantering – Slalom Comp",
     nav_dashboard: "Översikt",
     nav_participants: "Deltagare",
     nav_classes: "Klasser & startlistor",
@@ -50,7 +50,7 @@ export const translations = {
     results_time: "Tid (mm:ss.xx)",
   },
   en: {
-    appName: "Competition Management – Slalom-VW",
+    appName: "Competition Management – Slalom Comp",
     nav_dashboard: "Dashboard",
     nav_participants: "Participants",
     nav_classes: "Classes & start lists",
@@ -98,7 +98,7 @@ export const translations = {
     results_time: "Time (mm:ss.xx)",
   },
   es: {
-    appName: "Gestión de Competencia – Slalom-VW",
+    appName: "Gestión de Competencia – Slalom Comp",
     nav_dashboard: "Panel",
     nav_participants: "Participantes",
     nav_classes: "Categorías y listas de salida",
@@ -146,7 +146,7 @@ export const translations = {
     results_time: "Tiempo (mm:ss.xx)",
   },
   pt: {
-    appName: "Gestão de Competição – Slalom-VW",
+    appName: "Gestão de Competição – Slalom Comp",
     nav_dashboard: "Painel",
     nav_participants: "Participantes",
     nav_classes: "Categorias e listas de largada",
