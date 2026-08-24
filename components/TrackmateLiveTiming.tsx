@@ -1,30 +1,46 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { connectToTrackmate, isWebSerialSupported, type TrackmateConnection } from "@/lib/timing/serialConnection";
 import type { Participant } from "@/lib/types";
 
 interface Props {
-  /** Participants in the current heat that don't have a time recorded yet. */
+  /** Participants in the current heat that don't have a time recorded yet, in run order. */
   pendingParticipants: Participant[];
   onFinish: (participantId: string, timeMs: number) => void;
 }
 
-const LANE_COUNT = 2; // Trackmate protocol supports more, but 2 covers the common dual-lane setup.
-
+/**
+ * Live timing for a single-lane setup: racers go down the course one at a
+ * time, so we only ever need to know who's currently on the course. The
+ * hardware may still report a lane number (Trackmate supports multi-lane
+ * gates), but we don't care which one — the next finish signal, on
+ * whichever lane, belongs to whoever is marked as "up next" here.
+ */
 export function TrackmateLiveTiming({ pendingParticipants, onFinish }: Props) {
   const [supported] = useState(isWebSerialSupported());
   const [connected, setConnected] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
-  const [laneAssignment, setLaneAssignment] = useState<Record<number, string>>({});
+  const [nextParticipantId, setNextParticipantId] = useState<string>("");
   const [lastEvents, setLastEvents] = useState<string[]>([]);
   const connectionRef = useRef<TrackmateConnection | null>(null);
+  const nextParticipantRef = useRef(nextParticipantId);
+  nextParticipantRef.current = nextParticipantId;
+
+  // Default to the first not-yet-timed participant, and keep pointing at one
+  // of them as results come in (unless the operator has picked one manually).
+  useEffect(() => {
+    if (!nextParticipantId || !pendingParticipants.some((p) => p.id === nextParticipantId)) {
+      setNextParticipantId(pendingParticipants[0]?.id ?? "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingParticipants]);
 
   if (!supported) {
     return (
       <p className="rounded border border-line bg-black/[0.02] p-3 text-xs text-foreground/60">
         Direktanslutning till tidtagning kräver Chrome eller Edge på dator/Android (stöds inte i Safari, Firefox eller på iPad).
-        Du kan fortfarande skriva in tider manuellt ovan.
+        Du kan fortfarande skriva in tider manuellt nedan.
       </p>
     );
   }
@@ -32,28 +48,18 @@ export function TrackmateLiveTiming({ pendingParticipants, onFinish }: Props) {
   const connect = async () => {
     setConnectError(null);
     try {
-      const conn = await connectToTrackmate(
-        (event) => {
-          setLastEvents((prev) => [`Bana ${event.lane + 1} · ${event.type === "finish" ? "Mål" : "Reaktion"} · ${event.timeMs} ms`, ...prev].slice(0, 8));
-          if (event.type === "finish") {
-            setLaneAssignment((prev) => {
-              const participantId = prev[event.lane];
-              if (participantId) {
-                onFinish(participantId, event.timeMs);
-                const next = { ...prev };
-                delete next[event.lane];
-                return next;
-              }
-              return prev;
-            });
-          }
+      const conn = await connectToTrackmate((event) => {
+        setLastEvents((prev) => [`Bana ${event.lane + 1} · ${event.type === "finish" ? "Mål" : "Reaktion"} · ${event.timeMs} ms`, ...prev].slice(0, 8));
+        if (event.type === "finish" && nextParticipantRef.current) {
+          onFinish(nextParticipantRef.current, event.timeMs);
+          // pendingParticipants will update on the next render and the effect
+          // above will move the pointer to whoever's next.
         }
-      );
+      });
       connectionRef.current = conn;
       setConnected(true);
     } catch (err) {
-      // The user cancelling the port picker also lands here — that's not a real error.
-      if (err instanceof Error && err.name === "NotFoundError") return;
+      if (err instanceof Error && err.name === "NotFoundError") return; // user cancelled the port picker
       setConnectError(err instanceof Error ? err.message : String(err));
     }
   };
@@ -62,7 +68,6 @@ export function TrackmateLiveTiming({ pendingParticipants, onFinish }: Props) {
     await connectionRef.current?.disconnect();
     connectionRef.current = null;
     setConnected(false);
-    setLaneAssignment({});
   };
 
   return (
@@ -85,26 +90,22 @@ export function TrackmateLiveTiming({ pendingParticipants, onFinish }: Props) {
       {connected && (
         <>
           <p className="mb-2 text-xs text-foreground/60">
-            Välj vem som ska köra i respektive bana — tiden fylls i automatiskt när mål-signalen kommer.
+            Nästa mål-signal från tidtagningen fylls i automatiskt för åkaren nedan. Hoppar vidare till nästa efter varje mål.
           </p>
-          <div className="mb-3 grid grid-cols-2 gap-3">
-            {Array.from({ length: LANE_COUNT }).map((_, lane) => (
-              <div key={lane}>
-                <label className="mb-1 block text-xs font-medium text-foreground/70">Bana {lane + 1}</label>
-                <select
-                  value={laneAssignment[lane] ?? ""}
-                  onChange={(e) => setLaneAssignment((prev) => ({ ...prev, [lane]: e.target.value }))}
-                  className="w-full rounded border border-line bg-white px-2 py-1.5 text-sm"
-                >
-                  <option value="">— Välj åkare —</option>
-                  {pendingParticipants.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      #{p.bib_number} {p.first_name} {p.last_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+          <div className="mb-3 max-w-xs">
+            <label className="mb-1 block text-xs font-medium text-foreground/70">Nu på banan</label>
+            <select
+              value={nextParticipantId}
+              onChange={(e) => setNextParticipantId(e.target.value)}
+              className="w-full rounded border border-line bg-white px-2 py-1.5 text-sm"
+            >
+              <option value="">— Ingen —</option>
+              {pendingParticipants.map((p) => (
+                <option key={p.id} value={p.id}>
+                  #{p.bib_number} {p.first_name} {p.last_name}
+                </option>
+              ))}
+            </select>
           </div>
           {lastEvents.length > 0 && (
             <div className="rounded bg-black/[0.03] p-2 font-mono text-[11px] text-foreground/60">
