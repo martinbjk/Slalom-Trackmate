@@ -8,6 +8,7 @@ import { listClasses, listHeats, listParticipants, listResultsForHeat, upsertRes
 import { exportResultsPdf } from "@/lib/export/exporters";
 import { formatMsToTime, parseTimeToMs } from "@/lib/time";
 import { StatusBadge } from "@/components/StatusBadge";
+import { TrackmateLiveTiming } from "@/components/TrackmateLiveTiming";
 import type { ParticipantStatus } from "@/lib/types";
 
 const STATUSES: ParticipantStatus[] = ["active", "DNS", "DSQ", "DNF"];
@@ -64,6 +65,12 @@ export default function ResultsPage() {
 
     const timeMs = status === "active" ? parseTimeToMs(timeStr) : null;
     upsertResult(db, { participant_id: participantId, heat_id: heatId, time_ms: timeMs, rank: null, status });
+    notifyChange();
+  };
+
+  /** Used by the Trackmate live-timing integration — the device already gives us an exact ms value. */
+  const saveTimeMs = (participantId: string, timeMs: number) => {
+    upsertResult(db, { participant_id: participantId, heat_id: heatId, time_ms: timeMs, rank: null, status: "active" });
     notifyChange();
   };
 
@@ -125,6 +132,16 @@ export default function ResultsPage() {
       </div>
 
       {!heat && <p className="text-foreground/50">Ingen startlista genererad för denna klass ännu.</p>}
+
+      {heat && (
+        <TrackmateLiveTiming
+          pendingParticipants={rankedRows
+            .filter(({ r }) => !r || (r.status === "active" && r.time_ms == null))
+            .map(({ p }) => p)
+            .filter((p): p is NonNullable<typeof p> => p != null)}
+          onFinish={saveTimeMs}
+        />
+      )}
 
       {heat && (
         <div className="overflow-x-auto rounded border border-line bg-surface">
