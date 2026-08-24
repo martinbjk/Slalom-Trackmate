@@ -37,7 +37,7 @@ tävlingstillfället, bara när ni en gång i förväg klonar/bygger detta repo)
 
 ```bash
 git clone <repo-url>
-cd slalom-comp-app
+cd Slalom-Trackmate
 npm install
 npm run build
 npm run serve
