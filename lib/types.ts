@@ -16,11 +16,15 @@ export interface Participant {
   updated_at: string;
 }
 
+export type SlalomDiscipline = "TS" | "SPS" | "HS" | "GS" | "SGS" | "Banked" | "Custom";
+
 export interface CompClass {
   id: string;
   name: string;
   gender: Gender | "MIXED";
   age_group: string;
+  discipline: SlalomDiscipline;
+  cone_penalty_ms: number; // straff per nedkörd kon, i millisekunder
 }
 
 export interface Heat {
@@ -34,7 +38,8 @@ export interface Result {
   id: string;
   participant_id: string;
   heat_id: string;
-  time_ms: number | null; // null when status is not "active"
+  time_ms: number | null; // null when status is not "active" — this is the RAW elapsed time (ET), before cone penalty
+  cones_displaced: number; // number of cones knocked down; penalty is added on top of time_ms for ranking
   rank: number | null;
   status: ParticipantStatus;
   updated_at: string;

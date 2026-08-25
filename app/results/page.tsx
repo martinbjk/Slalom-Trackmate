@@ -7,6 +7,7 @@ import { DatabaseErrorBanner } from "@/components/DatabaseErrorBanner";
 import { listClasses, listHeats, listParticipants, listResultsForHeat, upsertResult } from "@/lib/db/repository";
 import { exportResultsPdf } from "@/lib/export/exporters";
 import { formatMsToTime, parseTimeToMs } from "@/lib/time";
+import { computeResultantTimeMs } from "@/lib/conePenalty";
 import { StatusBadge } from "@/components/StatusBadge";
 import { TrackmateLiveTiming } from "@/components/TrackmateLiveTiming";
 import type { ParticipantStatus } from "@/lib/types";
@@ -36,8 +37,12 @@ export default function ResultsPage() {
   const resultsByParticipant = useMemo(() => Object.fromEntries(results.map((r) => [r.participant_id, r])), [results]);
 
   const [timeInputs, setTimeInputs] = useState<Record<string, string>>({});
+  const [coneInputs, setConeInputs] = useState<Record<string, string>>({});
   const [statusInputs, setStatusInputs] = useState<Record<string, ParticipantStatus>>({});
   const [timeErrors, setTimeErrors] = useState<Record<string, string>>({});
+
+  const currentClass = classes.find((c) => c.id === classId);
+  const conePenaltyMs = currentClass?.cone_penalty_ms ?? 100;
 
   if (error) return <DatabaseErrorBanner error={error} />;
   if (!ready || !db) return <p className="text-foreground/60">Laddar lokal databas…</p>;
@@ -49,6 +54,8 @@ export default function ResultsPage() {
     const existing = resultsByParticipant[participantId];
     const status = statusInputs[participantId] ?? existing?.status ?? "active";
     const timeStr = timeInputs[participantId] ?? (existing?.time_ms != null ? formatMsToTime(existing.time_ms) : "");
+    const conesStr = coneInputs[participantId] ?? String(existing?.cones_displaced ?? 0);
+    const cones = Math.max(0, parseInt(conesStr, 10) || 0);
 
     if (status === "active" && timeStr.trim() !== "") {
       const parsed = parseTimeToMs(timeStr);
@@ -64,13 +71,14 @@ export default function ResultsPage() {
     });
 
     const timeMs = status === "active" ? parseTimeToMs(timeStr) : null;
-    upsertResult(db, { participant_id: participantId, heat_id: heatId, time_ms: timeMs, rank: null, status });
+    upsertResult(db, { participant_id: participantId, heat_id: heatId, time_ms: timeMs, cones_displaced: cones, rank: null, status });
     notifyChange();
   };
 
-  /** Used by the Trackmate live-timing integration — the device already gives us an exact ms value. */
+  /** Used by the Trackmate live-timing integration — the device already gives us an exact ms value. Cones (if any) are entered separately, since the timer doesn't track those. */
   const saveTimeMs = (participantId: string, timeMs: number) => {
-    upsertResult(db, { participant_id: participantId, heat_id: heatId, time_ms: timeMs, rank: null, status: "active" });
+    const existingCones = resultsByParticipant[participantId]?.cones_displaced ?? 0;
+    upsertResult(db, { participant_id: participantId, heat_id: heatId, time_ms: timeMs, cones_displaced: existingCones, rank: null, status: "active" });
     notifyChange();
   };
 
@@ -119,7 +127,11 @@ export default function ResultsPage() {
                   rank: r?.rank ? String(r.rank) : "—",
                   bib: p?.bib_number ?? 0,
                   name: p ? `${p.first_name} ${p.last_name}` : "?",
-                  time: formatMsToTime(r?.time_ms ?? null),
+                  time:
+                    r?.time_ms != null
+                      ? formatMsToTime(computeResultantTimeMs(r.time_ms, r.cones_displaced, conePenaltyMs))
+                      : formatMsToTime(null),
+                  cones: r?.cones_displaced ?? 0,
                   status: r?.status ?? "active",
                 }))
               )
@@ -151,7 +163,9 @@ export default function ResultsPage() {
                 <th className="px-3 py-2">Placering</th>
                 <th className="px-3 py-2">{t("field_bib")}</th>
                 <th className="px-3 py-2">Namn</th>
-                <th className="px-3 py-2">{t("results_time")}</th>
+                <th className="px-3 py-2">Rå tid ({t("results_time")})</th>
+                <th className="px-3 py-2">Koner</th>
+                <th className="px-3 py-2">Sluttid</th>
                 <th className="px-3 py-2">{t("field_status")}</th>
                 <th className="px-3 py-2"></th>
               </tr>
@@ -180,6 +194,21 @@ export default function ResultsPage() {
                         }`}
                       />
                       {timeErrors[p.id] && <p className="mt-1 max-w-40 text-xs text-signal-red">{timeErrors[p.id]}</p>}
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        min={0}
+                        disabled={currentStatus !== "active"}
+                        defaultValue={r?.cones_displaced ?? 0}
+                        onChange={(e) => setConeInputs((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                        className="tabular-time w-16 rounded border border-line bg-white px-2 py-1 text-sm disabled:bg-black/5"
+                      />
+                    </td>
+                    <td className="px-3 py-2 tabular-time font-medium">
+                      {r?.time_ms != null
+                        ? formatMsToTime(computeResultantTimeMs(r.time_ms, r.cones_displaced, conePenaltyMs))
+                        : "—"}
                     </td>
                     <td className="px-3 py-2">
                       <select

@@ -2,6 +2,7 @@ import type { Database } from "sql.js";
 import { v4 as uuid } from "uuid";
 import { execWrite, queryAll } from "./database";
 import type { CompClass, Heat, Participant, Result } from "../types";
+import { DEFAULT_CONE_PENALTY_MS, computeResultantTimeMs } from "../conePenalty";
 
 const nowIso = () => new Date().toISOString();
 
@@ -13,13 +14,15 @@ export function listClasses(db: Database): CompClass[] {
 
 export function upsertClass(db: Database, c: Partial<CompClass> & { name: string }): CompClass {
   const id = c.id ?? uuid();
+  const discipline = c.discipline ?? "TS";
+  const conePenaltyMs = c.cone_penalty_ms ?? DEFAULT_CONE_PENALTY_MS[discipline];
   execWrite(
     db,
-    `INSERT INTO classes (id, name, gender, age_group) VALUES (?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET name=excluded.name, gender=excluded.gender, age_group=excluded.age_group`,
-    [id, c.name, c.gender ?? "MIXED", c.age_group ?? ""]
+    `INSERT INTO classes (id, name, gender, age_group, discipline, cone_penalty_ms) VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET name=excluded.name, gender=excluded.gender, age_group=excluded.age_group, discipline=excluded.discipline, cone_penalty_ms=excluded.cone_penalty_ms`,
+    [id, c.name, c.gender ?? "MIXED", c.age_group ?? "", discipline, conePenaltyMs]
   );
-  return { id, name: c.name, gender: c.gender ?? "MIXED", age_group: c.age_group ?? "" };
+  return { id, name: c.name, gender: c.gender ?? "MIXED", age_group: c.age_group ?? "", discipline, cone_penalty_ms: conePenaltyMs };
 }
 
 export function deleteClass(db: Database, id: string): void {
@@ -137,27 +140,40 @@ export function listResultsForHeat(db: Database, heatId: string): Result[] {
   return queryAll<Result>(db, "SELECT * FROM results WHERE heat_id = ?", [heatId]);
 }
 
-export function upsertResult(db: Database, r: Omit<Result, "id" | "updated_at"> & { id?: string }): void {
+export function upsertResult(db: Database, r: Omit<Result, "id" | "updated_at" | "cones_displaced"> & { id?: string; cones_displaced?: number }): void {
   const ts = nowIso();
   const id = r.id ?? uuid();
+  const cones = r.cones_displaced ?? 0;
   execWrite(
     db,
-    `INSERT INTO results (id, participant_id, heat_id, time_ms, rank, status, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(participant_id, heat_id) DO UPDATE SET time_ms=excluded.time_ms, status=excluded.status, updated_at=excluded.updated_at`,
-    [id, r.participant_id, r.heat_id, r.time_ms, r.rank, r.status, ts]
+    `INSERT INTO results (id, participant_id, heat_id, time_ms, cones_displaced, rank, status, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(participant_id, heat_id) DO UPDATE SET time_ms=excluded.time_ms, cones_displaced=excluded.cones_displaced, status=excluded.status, updated_at=excluded.updated_at`,
+    [id, r.participant_id, r.heat_id, r.time_ms, cones, r.rank, r.status, ts]
   );
   recomputeRanking(db, r.heat_id);
 }
 
-/** Recomputes rank within a heat: fastest valid time = rank 1. DNS/DSQ/DNF are unranked. */
+/**
+ * Recomputes rank within a heat using the RESULTANT time (raw time + cone
+ * penalty), per World Skate rules 6.1: RT = ET + (Cones Displaced × Penalty).
+ * The cone penalty is looked up from the participant's class.
+ */
 export function recomputeRanking(db: Database, heatId: string): void {
-  const rows = queryAll<Result>(
+  const rows = queryAll<Result & { cone_penalty_ms: number }>(
     db,
-    "SELECT * FROM results WHERE heat_id = ? AND status = 'active' AND time_ms IS NOT NULL ORDER BY time_ms ASC",
+    `SELECT r.*, c.cone_penalty_ms as cone_penalty_ms
+     FROM results r
+     JOIN participants p ON p.id = r.participant_id
+     JOIN classes c ON c.id = p.class_id
+     WHERE r.heat_id = ? AND r.status = 'active' AND r.time_ms IS NOT NULL`,
     [heatId]
   );
-  rows.forEach((row, idx) => {
+  const ranked = rows
+    .map((row) => ({ ...row, resultant: computeResultantTimeMs(row.time_ms as number, row.cones_displaced, row.cone_penalty_ms) }))
+    .sort((a, b) => a.resultant - b.resultant);
+
+  ranked.forEach((row, idx) => {
     execWrite(db, "UPDATE results SET rank = ? WHERE id = ?", [idx + 1, row.id]);
   });
   execWrite(

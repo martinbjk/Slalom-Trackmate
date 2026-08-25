@@ -2,6 +2,7 @@
 
 import initSqlJs, { Database, SqlJsStatic, SqlValue } from "sql.js";
 import { SCHEMA_SQL } from "./schema";
+import { runMigrations } from "./migrations";
 import { idbLoadBlob, idbSaveBlob } from "./idb-blob-store";
 import { BASE_PATH } from "../basePath";
 
@@ -32,6 +33,7 @@ export async function getDatabase(): Promise<Database> {
   const existing = await idbLoadBlob(PERSIST_KEY);
   dbInstance = existing ? new sqlModule.Database(existing) : new sqlModule.Database();
   dbInstance.run(SCHEMA_SQL);
+  runMigrations(dbInstance);
 
   if (!existing) {
     await persistNow(dbInstance);
@@ -85,6 +87,7 @@ export async function restoreDatabaseFromFile(bytes: Uint8Array): Promise<void> 
   if (dbInstance) dbInstance.close();
   dbInstance = new sqlModule.Database(bytes);
   dbInstance.run(SCHEMA_SQL); // ensure schema is present even if restoring an older/partial file
+  runMigrations(dbInstance);
   await persistNow(dbInstance);
 }
 

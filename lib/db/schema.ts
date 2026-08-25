@@ -9,7 +9,9 @@ CREATE TABLE IF NOT EXISTS classes (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   gender TEXT NOT NULL CHECK (gender IN ('M','F','O','MIXED')),
-  age_group TEXT NOT NULL DEFAULT ''
+  age_group TEXT NOT NULL DEFAULT '',
+  discipline TEXT NOT NULL DEFAULT 'TS',
+  cone_penalty_ms INTEGER NOT NULL DEFAULT 100
 );
 
 CREATE TABLE IF NOT EXISTS participants (
@@ -50,6 +52,7 @@ CREATE TABLE IF NOT EXISTS results (
   participant_id TEXT NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
   heat_id TEXT NOT NULL REFERENCES heats(id) ON DELETE CASCADE,
   time_ms INTEGER,
+  cones_displaced INTEGER NOT NULL DEFAULT 0,
   rank INTEGER,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','DNS','DSQ','DNF')),
   updated_at TEXT NOT NULL,

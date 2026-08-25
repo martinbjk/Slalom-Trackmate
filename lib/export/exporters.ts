@@ -68,7 +68,7 @@ export function exportStartListPdf(
 export function exportResultsPdf(
   title: string,
   heatLabel: string,
-  rows: { rank: string; bib: number; name: string; time: string; status: string }[],
+  rows: { rank: string; bib: number; name: string; time: string; cones: number; status: string }[],
   filename = "resultat.pdf"
 ) {
   const doc = new jsPDF();
@@ -78,8 +78,8 @@ export function exportResultsPdf(
   doc.text(heatLabel, 14, 24);
   autoTable(doc, {
     startY: 30,
-    head: [["Placering", "Bib", "Namn", "Tid", "Status"]],
-    body: rows.map((r) => [r.rank, String(r.bib), r.name, r.time, r.status]),
+    head: [["Placering", "Bib", "Namn", "Sluttid", "Koner", "Status"]],
+    body: rows.map((r) => [r.rank, String(r.bib), r.name, r.time, String(r.cones), r.status]),
   });
   doc.save(filename);
 }

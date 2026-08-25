@@ -6,9 +6,11 @@ import { useT } from "@/lib/i18n/LocaleProvider";
 import { DatabaseErrorBanner } from "@/components/DatabaseErrorBanner";
 import { deleteClass, generateStartList, listClasses, listHeats, listParticipants, upsertClass } from "@/lib/db/repository";
 import { exportStartListPdf } from "@/lib/export/exporters";
-import type { Gender } from "@/lib/types";
+import type { Gender, SlalomDiscipline } from "@/lib/types";
+import { DEFAULT_CONE_PENALTY_MS, DISCIPLINE_LABELS } from "@/lib/conePenalty";
 
 const GENDER_OPTIONS: (Gender | "MIXED")[] = ["M", "F", "MIXED"];
+const DISCIPLINE_OPTIONS: SlalomDiscipline[] = ["TS", "SPS", "HS", "GS", "SGS", "Banked", "Custom"];
 
 export default function ClassesPage() {
   const { db, ready, error, version, notifyChange } = useDatabase();
@@ -16,6 +18,8 @@ export default function ClassesPage() {
   const [newName, setNewName] = useState("");
   const [newGender, setNewGender] = useState<Gender | "MIXED">("MIXED");
   const [newAgeGroup, setNewAgeGroup] = useState("");
+  const [newDiscipline, setNewDiscipline] = useState<SlalomDiscipline>("TS");
+  const [newConePenalty, setNewConePenalty] = useState<number>(DEFAULT_CONE_PENALTY_MS.TS / 1000);
   const [heatSize, setHeatSize] = useState<Record<string, number>>({});
 
   const classes = useMemo(() => (db ? listClasses(db) : []), [db, version]);
@@ -29,7 +33,13 @@ export default function ClassesPage() {
 
   const addClass = () => {
     if (!newName.trim()) return;
-    upsertClass(db, { name: newName.trim(), gender: newGender, age_group: newAgeGroup.trim() });
+    upsertClass(db, {
+      name: newName.trim(),
+      gender: newGender,
+      age_group: newAgeGroup.trim(),
+      discipline: newDiscipline,
+      cone_penalty_ms: Math.round(newConePenalty * 1000),
+    });
     setNewName("");
     setNewAgeGroup("");
     notifyChange();
@@ -62,6 +72,35 @@ export default function ClassesPage() {
             <label className="mb-1 block text-xs font-medium text-foreground/70">Åldersgrupp</label>
             <input className={inputClass} value={newAgeGroup} onChange={(e) => setNewAgeGroup(e.target.value)} placeholder="12-15" />
           </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-foreground/70">Disciplin</label>
+            <select
+              className={inputClass}
+              value={newDiscipline}
+              onChange={(e) => {
+                const d = e.target.value as SlalomDiscipline;
+                setNewDiscipline(d);
+                setNewConePenalty(DEFAULT_CONE_PENALTY_MS[d] / 1000);
+              }}
+            >
+              {DISCIPLINE_OPTIONS.map((d) => (
+                <option key={d} value={d}>
+                  {DISCIPLINE_LABELS[d]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-foreground/70">Konstraff (sek)</label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              className={`${inputClass} w-24`}
+              value={newConePenalty}
+              onChange={(e) => setNewConePenalty(parseFloat(e.target.value) || 0)}
+            />
+          </div>
           <button onClick={addClass} className="rounded bg-cone px-4 py-2 text-sm font-semibold text-white hover:bg-cone-dark">
             + {t("classes_add")}
           </button>
@@ -77,7 +116,7 @@ export default function ClassesPage() {
                   <div>
                     <p className="font-semibold">{c.name}</p>
                     <p className="text-xs text-foreground/50">
-                      {c.gender} · {c.age_group || "—"} · {classParticipants.length} deltagare
+                      {c.gender} · {c.age_group || "—"} · {classParticipants.length} deltagare · {DISCIPLINE_LABELS[c.discipline]} · konstraff {(c.cone_penalty_ms / 1000).toFixed(1)}s
                     </p>
                   </div>
                   <button
