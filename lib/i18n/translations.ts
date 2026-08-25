@@ -47,7 +47,7 @@ export const translations = {
     classes_heatSize: "Deltagare per heat",
     results_title: "Resultat",
     results_selectHeat: "Välj heat",
-    results_time: "Tid (mm:ss.xx)",
+    results_time: "Tid (mm:ss.xxx)",
   },
   en: {
     appName: "Competition Management – Slalom Comp",
@@ -95,7 +95,7 @@ export const translations = {
     classes_heatSize: "Participants per heat",
     results_title: "Results",
     results_selectHeat: "Select heat",
-    results_time: "Time (mm:ss.xx)",
+    results_time: "Time (mm:ss.xxx)",
   },
   es: {
     appName: "Gestión de Competencia – Slalom Comp",
@@ -143,7 +143,7 @@ export const translations = {
     classes_heatSize: "Participantes por serie",
     results_title: "Resultados",
     results_selectHeat: "Seleccionar serie",
-    results_time: "Tiempo (mm:ss.xx)",
+    results_time: "Tiempo (mm:ss.xxx)",
   },
   pt: {
     appName: "Gestão de Competição – Slalom Comp",
@@ -191,7 +191,7 @@ export const translations = {
     classes_heatSize: "Participantes por bateria",
     results_title: "Resultados",
     results_selectHeat: "Selecionar bateria",
-    results_time: "Tempo (mm:ss.xx)",
+    results_time: "Tempo (mm:ss.xxx)",
   },
 } as const satisfies Record<Locale, Record<string, string>>;
 
