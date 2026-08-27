@@ -1,4 +1,4 @@
-/** Parses "mm:ss.xx", "ss.xx" or plain seconds into milliseconds. Returns null if unparsable. */
+/** Parses "mm:ss.xxx", "ss.xxx" or plain seconds into milliseconds. Returns null if unparsable. */
 export function parseTimeToMs(input: string): number | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
@@ -13,12 +13,13 @@ export function parseTimeToMs(input: string): number | null {
   return minutes * 60_000 + seconds * 1000 + parseInt(fraction, 10);
 }
 
+/** Formats to mm:ss.xxx — full millisecond precision (1/1000s), per World Skate's timing accuracy standard (section 3.6). */
 export function formatMsToTime(ms: number | null): string {
   if (ms === null || Number.isNaN(ms)) return "—";
   const minutes = Math.floor(ms / 60_000);
   const seconds = Math.floor((ms % 60_000) / 1000);
-  const hundredths = Math.floor((ms % 1000) / 10);
+  const milliseconds = Math.floor(ms % 1000);
   const mm = minutes > 0 ? `${minutes}:` : "";
   const ss = minutes > 0 ? String(seconds).padStart(2, "0") : String(seconds);
-  return `${mm}${ss}.${String(hundredths).padStart(2, "0")}`;
+  return `${mm}${ss}.${String(milliseconds).padStart(3, "0")}`;
 }

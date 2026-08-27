@@ -60,7 +60,7 @@ export default function ResultsPage() {
     if (status === "active" && timeStr.trim() !== "") {
       const parsed = parseTimeToMs(timeStr);
       if (parsed === null) {
-        setTimeErrors((prev) => ({ ...prev, [participantId]: `Ogiltigt tidsformat: "${timeStr}". Använd mm:ss.xx, t.ex. 45.32 eller 1:12.05.` }));
+        setTimeErrors((prev) => ({ ...prev, [participantId]: `Ogiltigt tidsformat: "${timeStr}". Använd mm:ss.xxx, t.ex. 45.320 eller 1:12.050.` }));
         return; // Don't save — keep whatever was there before.
       }
     }
@@ -186,7 +186,7 @@ export default function ResultsPage() {
                     <td className="px-3 py-2">
                       <input
                         disabled={currentStatus !== "active"}
-                        placeholder="mm:ss.xx"
+                        placeholder="mm:ss.xxx"
                         defaultValue={r?.time_ms != null ? formatMsToTime(r.time_ms) : ""}
                         onChange={(e) => setTimeInputs((prev) => ({ ...prev, [p.id]: e.target.value }))}
                         className={`tabular-time w-28 rounded border bg-white px-2 py-1 text-sm disabled:bg-black/5 ${

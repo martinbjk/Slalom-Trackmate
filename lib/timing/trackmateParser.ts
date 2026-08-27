@@ -1,59 +1,77 @@
-// Trackmate slalom timer serial protocol.
+// Trackmate serial protocol, per the official "Racing Tidtagning" technical
+// specification (not the earlier @00L0T195-style example, which turned out
+// to describe a different/incorrect format).
 //
-// Messages look like: @00L0T195  or  @01L0T11795
-//   @{EE}L{lane}T{ms}
-//   EE   = event type: "00" = reaction (start), "01" = finish
-//   lane = 0-indexed lane number (0 = Lane 1, 1 = Lane 2, ...)
-//   ms   = time in milliseconds. For a finish event this is the full
-//          elapsed race time from the start signal — ready to use
-//          directly as a result time, no further math needed.
+// Each line looks like: L5 000300A2\r\n
+//   [Prefix][Lane] [Hex timestamp]
+//   Lane      = 1-8 (L1..L8)
+//   Timestamp = the hardware's internal clock, in milliseconds, as a
+//               HEX string (not decimal).
 //
-// Messages arrive back-to-back over the serial line, not necessarily one
-// per read chunk, so the caller should feed raw text through
-// parseTrackmateStream and keep the returned `remainder` for the next chunk.
+// Critically: Trackmate reuses the SAME prefix for both the start and the
+// finish of a run on a given lane — there is no event-type code in the
+// message. The receiving software must track each lane's state itself:
+//   - "waiting": the next timestamp for this lane is a START. Store it,
+//     move the lane to "active".
+//   - "active": the next timestamp for this lane is a FINISH. Elapsed time
+//     = finish - start. Move the lane back to "waiting" for the next racer.
+//
+// This parser is stateful (per lane) and stream-safe (buffers partial
+// lines across chunks) — construct one instance per connection and call
+// feed() with each raw decoded chunk.
 
 export interface TrackmateEvent {
-  type: "reaction" | "finish";
-  lane: number; // 0-indexed
+  type: "start" | "finish";
+  lane: number; // 1-indexed (L1 = lane 1), matching the hardware's own numbering
+  /** For "finish": elapsed run time in ms (finish timestamp − start timestamp). For "start": the raw hardware clock timestamp in ms. */
   timeMs: number;
 }
 
-const MESSAGE_RE = /@(\d{2})L(\d+)T(\d+)/g;
+const LINE_RE = /^L([1-8])\s+([0-9A-Fa-f]+)$/;
 
-/**
- * Parses as many complete messages as it can find in `chunk`, prepending any
- * leftover partial text from a previous call. Returns the parsed events plus
- * whatever trailing partial text should be carried over to the next chunk.
- *
- * We don't know whether the protocol terminates messages with a newline or
- * sends them back-to-back with no separator, so we can't safely assume
- * either. Instead: if the *last* match found touches the very end of the
- * buffered text, its number might be truncated (more digits could arrive in
- * the next read) — so we hold that one back and only emit the matches
- * before it. The held-back message gets parsed on the next call once more
- * data (even just one more byte) confirms where it actually ends.
- */
-export function parseTrackmateStream(
-  chunk: string,
-  carry: string
-): { events: TrackmateEvent[]; remainder: string } {
-  const text = carry + chunk;
-  const matches = [...text.matchAll(MESSAGE_RE)];
-  if (matches.length === 0) {
-    return { events: [], remainder: text.slice(-64) };
+type LaneState = "waiting" | "active";
+
+export class TrackmateStreamParser {
+  private carry = "";
+  private laneState = new Map<number, LaneState>();
+  private laneStartMs = new Map<number, number>();
+
+  /** Feed a raw decoded chunk of serial data. Returns any complete events found. */
+  feed(chunk: string): TrackmateEvent[] {
+    const text = this.carry + chunk;
+    const lines = text.split(/\r\n|\r|\n/);
+    // Hold back a trailing partial line (one with no terminator yet).
+    this.carry = lines.pop() ?? "";
+
+    const events: TrackmateEvent[] = [];
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      const match = LINE_RE.exec(line);
+      if (!match) continue; // ignore anything that isn't a recognized L{n} {hex} line
+
+      const lane = parseInt(match[1], 10);
+      const timestampMs = parseInt(match[2], 16);
+
+      const state = this.laneState.get(lane) ?? "waiting";
+      if (state === "waiting") {
+        this.laneStartMs.set(lane, timestampMs);
+        this.laneState.set(lane, "active");
+        events.push({ type: "start", lane, timeMs: timestampMs });
+      } else {
+        const startMs = this.laneStartMs.get(lane) ?? timestampMs;
+        const elapsed = timestampMs - startMs;
+        this.laneState.set(lane, "waiting");
+        events.push({ type: "finish", lane, timeMs: elapsed });
+      }
+    }
+    return events;
   }
 
-  const last = matches[matches.length - 1];
-  const lastEnd = (last.index ?? 0) + last[0].length;
-  const lastTouchesEnd = lastEnd === text.length;
-  const emitMatches = lastTouchesEnd ? matches.slice(0, -1) : matches;
-
-  const events: TrackmateEvent[] = emitMatches.map((m) => ({
-    type: m[1] === "01" ? "finish" : "reaction",
-    lane: parseInt(m[2], 10),
-    timeMs: parseInt(m[3], 10),
-  }));
-
-  const remainder = lastTouchesEnd ? text.slice(last.index ?? 0) : text.slice(lastEnd);
-  return { events, remainder: remainder.slice(-64) }; // cap to avoid unbounded growth on garbage input
+  /** Resets tracked lane state — call if you send an "H" reset command to the hardware, so software and hardware clocks agree. */
+  reset(): void {
+    this.laneState.clear();
+    this.laneStartMs.clear();
+    this.carry = "";
+  }
 }
